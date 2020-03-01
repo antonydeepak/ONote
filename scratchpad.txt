@@ -1,0 +1,5 @@
+First Step:
+    Create a model for storing the sections data
+    Download the data
+    Hydrate the model with dummy data
+    Create a Tree hierarchy with the sections model
