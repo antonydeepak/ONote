@@ -1,5 +1,23 @@
-First Step:
-    Create a model for storing the sections data
-    Download the data
-    Hydrate the model with dummy data
-    Create a Tree hierarchy with the sections model
+Objective:
+    Get a rough ass prototype
+
+Prototype:
+    The usability should mimic the webpage that's it. No optimization and no shit!!
+
+Status:
+    Have got all the notebooks from the web and show in  a treeview
+    First take on access model:
+        We'll follow the parent child model of the returned data from onenote and model the same way
+        notebooks 
+            Section Groups
+                Sections
+                    Pages
+                        Subpages
+            Sections
+        We have to handle the click handler of each tree node in tree view to load the respective child items.
+            For ex, on clicking the notebooks node, the get_sections() & get_sections_groups() should be called and so on..
+
+
+To Learn:
+    QStandardItemModel and how it works
+    How to associate click handling with QStandardItemModel
