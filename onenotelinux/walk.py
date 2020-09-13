@@ -91,22 +91,21 @@ def index_pages():
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
 
-    # print(get_access_device_flow())
-    # client_id = "543ead0b-cc06-487c-9b75-67213f2d5fff"
-    # scopes = ["user.read", "notes.read"]
-    # redirect_uri = "https://login.microsoftonline.com/common/oauth2/nativeclient"
-    # user_name = "antonydeepak@gmail.com"
+    client_id = "543ead0b-cc06-487c-9b75-67213f2d5fff"
+    scopes = ["user.read", "notes.read"]
+    redirect_uri = "https://login.microsoftonline.com/common/oauth2/nativeclient"
+    user_name = "antonydeepak@gmail.com"
 
-    # authenticator = OneNoteAuthenticator(user_name, client_id, scopes)
-    # s = OneNoteSession(authenticator)
-    # r = s.get("https://graph.microsoft.com/v1.0/users/me/onenote/pages/0-a03623f19fed436ebc0657fddc45a2fd!19-F33E492FF42DEBDD!324082/content")
-    # r.raise_for_status()
-    # p = open("page.html", "w")
-    # p.write(r.text)
-    # p.flush()
+    authenticator = OneNoteAuthenticator(user_name, client_id, scopes)
+    s = OneNoteSession(authenticator)
+    r = s.get("https://graph.microsoft.com/v1.0/me/onenote/pages")
+    r.raise_for_status()
+    p = open("pages.json", "w")
+    p.write(r.text)
+    p.flush()
 
     # p = HtmlOnenoteContentParse()
     # p.feed(open("page.html", "r").read())
     # print(p.content)
     # index("https://graph.microsoft.com/v1.0/users/me/onenote/pages/0-a03623f19fed436ebc0657fddc45a2fd!19-F33E492FF42DEBDD!324082/content")
-    print(index_pages())
+    # print(index_pages())

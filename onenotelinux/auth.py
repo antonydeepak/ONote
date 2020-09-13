@@ -77,7 +77,6 @@ class OneNoteSession(requests.Session):
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
 
-    # print(get_access_device_flow())
     client_id = "543ead0b-cc06-487c-9b75-67213f2d5fff"
     scopes = ["user.read", "notes.read"]
     redirect_uri = "https://login.microsoftonline.com/common/oauth2/nativeclient"
