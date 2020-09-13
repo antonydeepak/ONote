@@ -14,7 +14,7 @@ from pathlib import Path
 # use the schema to call tantivy for indexing
 
 # Get all pages with https://graph.microsoft.com/v1.0/me/onenote/pages
-# Keep using the nextLink to navigate to next pages
+# Keep using the nextLink to navigate to next pages. This will stop appearing in the last page.
 # from the /pages extract the content url & title
 
 client_id = "543ead0b-cc06-487c-9b75-67213f2d5fff"
@@ -49,7 +49,15 @@ if not INDEX_DIR_PATH.exists():
     os.makedirs(INDEX_DIR_PATH)
 PAGES_URL = "https://graph.microsoft.com/v1.0/me/onenote/pages"
 
+# Download a page and send it for indexing. (indexing for a batch of pages would be a single unit for concurrency)
+# Continue to download
+# Wrap all this in a nice tui similar to fzf?
+# Give a command line interface that can refresh
+# Give a command line interface that can search
 
+# Progress
+    # parallel indexing in different processes
+# will 
 def index_pages():
     logging.debug("Fetching pages")
     r = s.get(PAGES_URL)
