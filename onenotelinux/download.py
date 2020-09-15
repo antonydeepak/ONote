@@ -1,5 +1,5 @@
 from auth import OneNoteAuthenticator, OneNoteSession
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 import json
 import logging
 import asyncio
@@ -9,6 +9,8 @@ logger = logging.getLogger(__name__)
 
 def download(session, url):
     logger.info(f"Downloading {url}")
+    if "0-b1d74c2970a3463f9344bdf6fee47eb8!50-F33E492FF42DEBDD" in url:
+        raise ValueError("Download Failed")
     r = session.get(url)
     r.raise_for_status()
     return r.text
@@ -31,13 +33,13 @@ async def main():
     r = json.load(open("pages.json", "r"))
     loop = asyncio.get_running_loop()
     tasks = []
-    with ThreadPoolExecutor() as pool:
+    with ProcessPoolExecutor() as pool:
         for p in r["value"]:
             url = p["contentUrl"]
             tasks.append(loop.run_in_executor(pool, download, s, url))
-        content = await asyncio.gather(*tasks, return_exceptions=True)
-        for c in content:
-            print(c)
+        content = await asyncio.gather(*tasks, return_exceptions=False)
+        print(type(content[0]))
+        print(content[1])
 
 logging.basicConfig(level=logging.INFO)
 asyncio.run(main())
