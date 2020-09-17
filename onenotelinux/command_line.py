@@ -1,25 +1,20 @@
-# sets up the fundamentals from py
-# It enumerates thru pages in /page
-# for every page it give it to a process pool executor (failures during indexing)
-import asyncio
+import concurrent.futures
 import json
 import logging
 import os
-import atexit
 import subprocess
 
 from auth import OneNoteAuthenticator, OneNoteSession
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from collections import namedtuple
+from concurrent.futures import ThreadPoolExecutor
 from html.parser import HTMLParser
 from pathlib import Path
-from collections import namedtuple
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 PAGES_URL = "https://graph.microsoft.com/v1.0/me/onenote/pages"
 
-Page = namedtuple('Page', ['title', 'content_url', 'weblink'])
 
 INDEX_DIR_PATH = Path(os.path.join(Path.home(), ".onenotelinux", "index"))
 INDEX_MANAGED = INDEX_DIR_PATH.joinpath(".managed.json")
@@ -58,57 +53,22 @@ class HtmlOnenoteContentParser(HTMLParser):
         return " ".join(self._content)
 
 
-class IndexError(Exception):
-    pass
+def index(downloader):
+    """
+    Onenote PAGES_URL returns paginated list pages.
+    Idea is to concurrently download a list of page content urls and index in a single batch using tantivy
+    """
+    Page = namedtuple('Page', ['title', 'content_url', 'weblink'])
 
-
-def index_pages(pages, downloader):
     def tantivy(pages):
         p = subprocess.run(["tantivy", "index", "--index", INDEX_DIR_PATH],
                            input=pages, encoding="utf8", stderr=subprocess.PIPE)
         if p.returncode != 0:
             raise IndexError(p.stderr)
 
-    async def main(pages):
-        loop = asyncio.get_running_loop()
-
-        # download the OneNote page content
-        tasks = []
-        with ThreadPoolExecutor() as pool:
-            for page in pages:
-                logger.debug(f"Download content page '{page.title}' from '{page.content_url}'")
-                tasks.append(loop.run_in_executor(pool, downloader, page.content_url))
-        contents = await asyncio.gather(*tasks, return_exceptions=False)
-
-        # index the page content
-        indexable_pages = []
-        for i, page in enumerate(pages):
-            content_parser = HtmlOnenoteContentParser()
-            content = contents[i].text
-            content_parser.feed(content)
-            content = content_parser.content
-
-            indexable_pages.append(json.dumps({
-                "title": page.title,
-                "content": content,
-                "url": page.weblink
-            }))
-        tantivy("\n".join(indexable_pages))
-
-    asyncio.run(main(pages))
-
-
-async def index(downloader):
-    """
-    Onenote PAGES_URL returns paginated list pages.
-    Idea is to download a list of page content urls and concurrently schedule it for indexing in a separate process
-        - Inside that process, we concurrently download the content for all the pages
-        - We then batch that up and sent it to tantivy for indexing
-    """
-
-    index_tasks = []
-    loop = asyncio.get_running_loop()
-    with ProcessPoolExecutor() as pool:
+    future_to_page = {}
+    with ThreadPoolExecutor() as executor:
+        # download page content
         pages_url = PAGES_URL
         while pages_url is not None:
             logger.debug(f"Downloading {pages_url}")
@@ -117,19 +77,38 @@ async def index(downloader):
 
             c = json.loads(r.text)
             pages = c["value"]
-            indexable_pages = [
-                Page(title=page["title"], content_url=page["contentUrl"],
-                     weblink=page["links"]["oneNoteWebUrl"]["href"])
-                for page in pages
-            ]
-            if indexable_pages:
-                index_tasks.append(loop.run_in_executor(pool, index_pages, indexable_pages, downloader))
+            for p in pages:
+                page = Page(title=p["title"], content_url=p["contentUrl"], weblink=p["links"]["oneNoteWebUrl"]["href"])
+                future = executor.submit(downloader, page.content_url)
+                future_to_page[future] = page
+
+                logger.debug(f"Downloading content page '{page.title}' from '{page.content_url}'")
 
             pages_url = c.get("@odata.nextLink")
-        index_results = await asyncio.gather(*index_tasks, return_exceptions=True)
-        failed_tasks = ((index_tasks[i], r) for i, r in enumerate(index_results) if isinstance(r, Exception))
-        for t, r in failed_tasks:
-            logger.warning(f"Failed to index {t} because {r}")
+
+        # index pages
+        logger.debug("Indexing pages")
+        indexable_pages = []
+        for future in concurrent.futures.as_completed(future_to_page):
+            page = future_to_page[future]
+            if future.exception():
+                logger.warning(f"Failed to index {page.title} because {future.exception()}")
+                continue
+
+            r = future.result()
+            content_parser = HtmlOnenoteContentParser()
+            content_parser.feed(r.text)
+            content = content_parser.content
+
+            indexable_pages.append(json.dumps({
+                "title": page.title,
+                "content": content,
+                "url": page.weblink
+            }))
+        d = "\n".join(indexable_pages)
+        tantivy(d)
+
+        logger.info(f"Total {len(indexable_pages)} pages have been indexed")
 
 
 if __name__ == '__main__':
@@ -141,5 +120,5 @@ if __name__ == '__main__':
     user_name = "antonydeepak@gmail.com"
 
     authenticator = OneNoteAuthenticator(user_name, client_id, scopes)
-    s = OneNoteSession(authenticator)
-    asyncio.run(index(downloader=s.get))
+    downloader = OneNoteSession(authenticator).get
+    index(downloader)
