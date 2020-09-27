@@ -1,37 +1,50 @@
+"""Usage: onesearch [-i <index>] QUERY
+          onsearch index [-i <index>]
+
+-i <index>, --index <index>  Path to index directory
+--version                    Show version
+--help
+"""
+
 import concurrent.futures
+import docopt
 import json
 import logging
 import os
 import subprocess
 
-from auth import OneNoteAuthenticator, OneNoteSession
 from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
 from html.parser import HTMLParser
 from pathlib import Path
+
+from auth import OneNoteAuthenticator, OneNoteSession
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 PAGES_URL = "https://graph.microsoft.com/v1.0/me/onenote/pages"
 
-
+VERSION = 0.1
 INDEX_DIR_PATH = Path(os.path.join(Path.home(), ".onenotelinux", "index"))
-INDEX_MANAGED = INDEX_DIR_PATH.joinpath(".managed.json")
-INDEX_META = INDEX_DIR_PATH.joinpath("meta.json")
-if not INDEX_DIR_PATH.exists():
-    logger.debug(f"Creating '{INDEX_DIR_PATH}'")
-    os.makedirs(INDEX_DIR_PATH)
-if not INDEX_MANAGED.exists():
-    logger.debug(f"Creating '{INDEX_MANAGED}'")
-    with open("index/.managed.json", "r") as r:
-        with open(INDEX_MANAGED, "w") as w:
-            w.write(r.read())
-if not INDEX_META.exists():
-    logger.debug(f"Creating '{INDEX_META}'")
-    with open("index/meta.json", "r") as r:
-        with open(INDEX_META, "w") as w:
-            w.write(r.read())
+
+
+def create_index(path: Path):
+    index_managed = path.joinpath(".managed.json")
+    index_meta = path.joinpath("meta.json")
+    if not path.exists():
+        logger.debug(f"Creating '{INDEX_DIR_PATH}'")
+        os.makedirs(INDEX_DIR_PATH)
+    if not index_managed.exists():
+        logger.debug(f"Creating '{index_managed}'")
+        with open("index/.managed.json", "r") as r:
+            with open(index_managed, "w") as w:
+                w.write(r.read())
+    if not index_meta.exists():
+        logger.debug(f"Creating '{index_meta}'")
+        with open("index/meta.json", "r") as r:
+            with open(index_meta, "w") as w:
+                w.write(r.read())
 
 
 class HtmlOnenoteContentParser(HTMLParser):
@@ -53,7 +66,11 @@ class HtmlOnenoteContentParser(HTMLParser):
         return " ".join(self._content)
 
 
-def index(downloader):
+class IndexError(Exception):
+    pass
+
+
+def index(index_path, downloader):
     """
     Onenote PAGES_URL returns paginated list pages.
     Idea is to concurrently download a list of page content urls and index in a single batch using tantivy
@@ -61,7 +78,7 @@ def index(downloader):
     Page = namedtuple('Page', ['title', 'content_url', 'weblink'])
 
     def tantivy(pages):
-        p = subprocess.run(["tantivy", "index", "--index", INDEX_DIR_PATH],
+        p = subprocess.run(["tantivy", "index", "--index", index_path],
                            input=pages, encoding="utf8", stderr=subprocess.PIPE)
         if p.returncode != 0:
             raise IndexError(p.stderr)
@@ -111,14 +128,37 @@ def index(downloader):
         logger.info(f"Total {len(indexable_pages)} pages have been indexed")
 
 
-if __name__ == '__main__':
+def search(query, index_path):
+    p = subprocess.run(["tantivy", "search", "--index", index_path, "-q", query],
+                       encoding="utf8", stderr=subprocess.PIPE, capture_output=True)
+    print(p.stdout)
+
+
+def main():
     logging.basicConfig(level=logging.WARNING)
 
     client_id = "543ead0b-cc06-487c-9b75-67213f2d5fff"
     scopes = ["user.read", "notes.read"]
-    redirect_uri = "https://login.microsoftonline.com/common/oauth2/nativeclient"
     user_name = "antonydeepak@gmail.com"
 
-    authenticator = OneNoteAuthenticator(user_name, client_id, scopes)
-    downloader = OneNoteSession(authenticator).get
-    index(downloader)
+    args = docopt(__doc__)
+    # index
+    if args["index"]:
+        authenticator = OneNoteAuthenticator(user_name, client_id, scopes)
+        downloader = OneNoteSession(authenticator).get
+        path = args["--index"] if args["--index"] else INDEX_DIR_PATH
+        create_index(path)
+        try:
+            index(path, downloader)
+            exit(0)
+        except IndexError as e:
+            logger.error(f"Indexing failed with message {e}")
+            exit(1)
+    elif args["--version"]:
+        print(VERSION)
+        exit(0)
+
+    # search
+    q = args["QUERY"].strip()
+    path = args["--index"] if args["--index"] else INDEX_DIR_PATH
+    search(q, path)
