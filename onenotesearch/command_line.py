@@ -1,13 +1,13 @@
-"""Usage: onesearch [-i <index>] QUERY
-          onsearch index [-i <index>]
+"""Usage: onenotesearch [-i <index>] QUERY
+          onenotesearch index [-d <directory>]
 
 -i <index>, --index <index>  Path to index directory
+-d <directory>, --directory <directory>  Path to index directory
 --version                    Show version
 --help
 """
 
 import concurrent.futures
-import docopt
 import json
 import logging
 import os
@@ -15,10 +15,11 @@ import subprocess
 
 from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
+from docopt import docopt
 from html.parser import HTMLParser
 from pathlib import Path
 
-from auth import OneNoteAuthenticator, OneNoteSession
+from onenotesearch.auth import OneNoteAuthenticator, OneNoteSession
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -26,7 +27,7 @@ logger.setLevel(logging.DEBUG)
 PAGES_URL = "https://graph.microsoft.com/v1.0/me/onenote/pages"
 
 VERSION = 0.1
-INDEX_DIR_PATH = Path(os.path.join(Path.home(), ".onenotelinux", "index"))
+INDEX_DIR_PATH = Path(os.path.join(Path.home(), ".onenotesearch", "index"))
 
 
 def create_index(path: Path):
@@ -67,6 +68,10 @@ class HtmlOnenoteContentParser(HTMLParser):
 
 
 class IndexError(Exception):
+    pass
+
+
+class SearchError(Exception):
     pass
 
 
@@ -130,35 +135,39 @@ def index(index_path, downloader):
 
 def search(query, index_path):
     p = subprocess.run(["tantivy", "search", "--index", index_path, "-q", query],
-                       encoding="utf8", stderr=subprocess.PIPE, capture_output=True)
-    print(p.stdout)
+                       encoding="utf8", capture_output=True)
+    if p.returncode != 0:
+        raise SearchError(p.stderr)
+    return p.stdout
 
 
 def main():
     logging.basicConfig(level=logging.WARNING)
 
-    client_id = "543ead0b-cc06-487c-9b75-67213f2d5fff"
-    scopes = ["user.read", "notes.read"]
-    user_name = "antonydeepak@gmail.com"
-
-    args = docopt(__doc__)
+    args = docopt(__doc__, version=VERSION)
     # index
     if args["index"]:
+        path = Path(args["--directory"] if args["--directory"] else INDEX_DIR_PATH)
+        logger.debug(f"Looking for index at path {path}")
+        create_index(path)
+
+        client_id = "543ead0b-cc06-487c-9b75-67213f2d5fff"
+        scopes = ["user.read", "notes.read"]
+        user_name = "antonydeepak@gmail.com"
         authenticator = OneNoteAuthenticator(user_name, client_id, scopes)
         downloader = OneNoteSession(authenticator).get
-        path = args["--index"] if args["--index"] else INDEX_DIR_PATH
-        create_index(path)
         try:
             index(path, downloader)
             exit(0)
         except IndexError as e:
-            logger.error(f"Indexing failed with message {e}")
+            logger.error(f"Indexing failed with message '{e}'")
             exit(1)
-    elif args["--version"]:
-        print(VERSION)
-        exit(0)
 
     # search
     q = args["QUERY"].strip()
     path = args["--index"] if args["--index"] else INDEX_DIR_PATH
-    search(q, path)
+    try:
+        print(search(q, path))
+    except SearchError as e:
+        logger.error(f"Search failed with message '{e}'")
+        exit(1)

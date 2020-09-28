@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 from typing import List
 
-CACHE_PATH = Path(os.path.join(Path.home(), ".onenotelinux", "user_token.bin"))
+CACHE_PATH = Path(os.path.join(Path.home(), ".onenotesearch", "user_token.bin"))
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,6 @@ class OneNoteAuthenticator():
             logger.debug("Could not get the credentials. Using device flow")
 
             flow = self.app.initiate_device_flow(scopes=self.scopes)
-            print(flow["message"])
             result = self.app.acquire_token_by_device_flow(flow)
 
         if "error" in result:
@@ -62,7 +61,7 @@ class OneNoteSession(requests.Session):
         self.token_fetcher = token_fetcher
         token = self.token_fetcher()
         self.headers.update(
-            {"User-Agent": "OnenoteLinuxClient", "Authorization": f"Bearer {token}"}
+            {"User-Agent": "OnenoteSearchClient", "Authorization": f"Bearer {token}"}
         )
 
     def request(self, *args, **kwargs):
@@ -72,18 +71,3 @@ class OneNoteSession(requests.Session):
             self.headers["Authorization"] = f"Bearer {token}"
             resp = super().request(*args, **kwargs)
         return resp
-
-
-if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
-
-    client_id = "543ead0b-cc06-487c-9b75-67213f2d5fff"
-    scopes = ["user.read", "notes.read"]
-    redirect_uri = "https://login.microsoftonline.com/common/oauth2/nativeclient"
-    user_name = "antonydeepak@gmail.com"
-
-    authenticator = OneNoteAuthenticator(user_name, client_id, scopes)
-    s = OneNoteSession(authenticator)
-    r = s.get("https://graph.microsoft.com/v1.0/me/onenote/notebooks")
-    r.raise_for_status()
-    print(r.text)

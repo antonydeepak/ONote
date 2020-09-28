@@ -1,6 +1,6 @@
 from setuptools import setup
 
-from onesearch.command_line import VERSION 
+from onenotesearch.command_line import VERSION
 
 
 def readme():
@@ -8,7 +8,7 @@ def readme():
         return f.read()
 
 
-setup(name='onesearch',
+setup(name='onenotesearch',
       version=VERSION,
       python_requires='>=3.7',
       description='Search onenote pages',
@@ -16,7 +16,7 @@ setup(name='onesearch',
       url='https://github.com/antonydeepak/OneNoteSearch',
       author='Antony Thomas',
       author_email='gogsbread@gmail.com',
-      packages=['onesearch'],
+      packages=['onenotesearch'],
       install_requires=[
           'docopt',
           'msal',
@@ -24,5 +24,5 @@ setup(name='onesearch',
       ],
       zip_safe=False,
       entry_points={
-          'console_scripts': ['onesearch=onesearch.command_line:main'],
+          'console_scripts': ['onenotesearch=onenotesearch.command_line:main'],
       })
