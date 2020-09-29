@@ -18,6 +18,7 @@ from concurrent.futures import ThreadPoolExecutor
 from docopt import docopt
 from html.parser import HTMLParser
 from pathlib import Path
+from typing import Generator
 
 from onenotesearch.auth import OneNoteAuthenticator, OneNoteSession
 
@@ -34,8 +35,8 @@ def create_index(path: Path):
     index_managed = path.joinpath(".managed.json")
     index_meta = path.joinpath("meta.json")
     if not path.exists():
-        logger.debug(f"Creating '{INDEX_DIR_PATH}'")
-        os.makedirs(INDEX_DIR_PATH)
+        logger.debug(f"Creating '{path}'")
+        os.makedirs(path)
     if not index_managed.exists():
         logger.debug(f"Creating '{index_managed}'")
         with open("index/.managed.json", "r") as r:
@@ -133,12 +134,17 @@ def index(index_path, downloader):
         logger.info(f"Total {len(indexable_pages)} pages have been indexed")
 
 
-def search(query, index_path):
+SearchResult = namedtuple('SearchResult', ['title', 'url'])
+
+
+def search(query, index_path) -> Generator[SearchResult, None, None]:
     p = subprocess.run(["tantivy", "search", "--index", index_path, "-q", query],
                        encoding="utf8", capture_output=True)
     if p.returncode != 0:
         raise SearchError(p.stderr)
-    return p.stdout
+    for r in p.stdout.strip().split('\n'):
+        c = json.loads(r)
+        yield SearchResult(title=c["title"][0], url=c["url"][0])
 
 
 def main():
@@ -167,7 +173,9 @@ def main():
     q = args["QUERY"].strip()
     path = args["--index"] if args["--index"] else INDEX_DIR_PATH
     try:
-        print(search(q, path))
+        for r in search(q, path):
+            print(f"title: {r.title}\nurl: {r.url}")
+            print()
     except SearchError as e:
         logger.error(f"Search failed with message '{e}'")
         exit(1)
