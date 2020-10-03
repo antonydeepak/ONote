@@ -1,4 +1,4 @@
-from onenotesearch.command_line import main
+from onote.command_line import main
 
 if __name__ == '__main__':
     main()

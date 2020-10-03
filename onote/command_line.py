@@ -1,9 +1,9 @@
-"""Usage: onenotesearch [-i <index>] QUERY
-          onenotesearch index [-d <directory>]
+"""Usage: onote search [-i <index>] QUERY
+          onote index [-d <directory>]
 
--i <index>, --index <index>  Path to index directory
+-i <index>, --index <index>              Path to index directory
 -d <directory>, --directory <directory>  Path to index directory
---version                    Show version
+--version                                Show version
 --help
 """
 
@@ -20,30 +20,29 @@ from html.parser import HTMLParser
 from pathlib import Path
 from typing import Generator
 
-from onenotesearch.auth import OneNoteAuthenticator, OneNoteSession
+from onote.auth import OneNoteAuthenticator, OneNoteSession
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
 PAGES_URL = "https://graph.microsoft.com/v1.0/me/onenote/pages"
 
 VERSION = 0.1
-INDEX_DIR_PATH = Path(os.path.join(Path.home(), ".onenotesearch", "index"))
+INDEX_DIR_PATH = Path(os.path.join(Path.home(), ".onote", "index"))
 
 
 def create_index(path: Path):
     index_managed = path.joinpath(".managed.json")
     index_meta = path.joinpath("meta.json")
     if not path.exists():
-        logger.debug(f"Creating '{path}'")
+        logger.info(f"Creating '{path}'")
         os.makedirs(path)
     if not index_managed.exists():
-        logger.debug(f"Creating '{index_managed}'")
+        logger.info(f"Creating '{index_managed}'")
         with open("index/.managed.json", "r") as r:
             with open(index_managed, "w") as w:
                 w.write(r.read())
     if not index_meta.exists():
-        logger.debug(f"Creating '{index_meta}'")
+        logger.info(f"Creating '{index_meta}'")
         with open("index/meta.json", "r") as r:
             with open(index_meta, "w") as w:
                 w.write(r.read())
@@ -105,12 +104,12 @@ def index(index_path, downloader):
                 future = executor.submit(downloader, page.content_url)
                 future_to_page[future] = page
 
-                logger.debug(f"Downloading content page '{page.title}' from '{page.content_url}'")
+                logger.info(f"Downloading content page '{page.title}' from '{page.content_url}'")
 
             pages_url = c.get("@odata.nextLink")
 
         # index pages
-        logger.debug("Indexing pages")
+        logger.info("Indexing pages")
         indexable_pages = []
         for future in concurrent.futures.as_completed(future_to_page):
             page = future_to_page[future]
@@ -148,9 +147,10 @@ def search(query, index_path) -> Generator[SearchResult, None, None]:
 
 
 def main():
-    logging.basicConfig(level=logging.WARNING)
+    logging.basicConfig(level=logging.DEBUG)
 
     args = docopt(__doc__, version=VERSION)
+
     # index
     if args["index"]:
         path = Path(args["--directory"] if args["--directory"] else INDEX_DIR_PATH)
@@ -170,12 +170,13 @@ def main():
             exit(1)
 
     # search
-    q = args["QUERY"].strip()
-    path = args["--index"] if args["--index"] else INDEX_DIR_PATH
-    try:
-        for r in search(q, path):
-            print(f"title: {r.title}\nurl: {r.url}")
-            print()
-    except SearchError as e:
-        logger.error(f"Search failed with message '{e}'")
-        exit(1)
+    if args["search"]:
+        q = args["QUERY"].strip()
+        path = args["--index"] if args["--index"] else INDEX_DIR_PATH
+        try:
+            for r in search(q, path):
+                print(f"title: {r.title}\nurl: {r.url}")
+                print()
+        except SearchError as e:
+            logger.error(f"Search failed with message '{e}'")
+            exit(1)

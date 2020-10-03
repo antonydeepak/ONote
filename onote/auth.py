@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 from typing import List
 
-CACHE_PATH = Path(os.path.join(Path.home(), ".onenotesearch", "user_token.bin"))
+CACHE_PATH = Path(os.path.join(Path.home(), ".onote", "user_token.bin"))
 
 logger = logging.getLogger(__name__)
 
@@ -33,10 +33,10 @@ class OneNoteAuthenticator():
         accounts = self.app.get_accounts(self.user_name)
         result = None
         if accounts:
-            logger.debug("account exists. User must have logged-in before. Taking the first account")
+            logger.info("account exists. User must have logged-in before. Taking the first account")
             result = self.app.acquire_token_silent(self.scopes, account=accounts[0])
         if not result:
-            logger.debug("Could not get the credentials. Using device flow")
+            logger.info("Could not get the credentials. Using device flow")
 
             flow = self.app.initiate_device_flow(scopes=self.scopes)
             result = self.app.acquire_token_by_device_flow(flow)
@@ -61,7 +61,7 @@ class OneNoteSession(requests.Session):
         self.token_fetcher = token_fetcher
         token = self.token_fetcher()
         self.headers.update(
-            {"User-Agent": "OnenoteSearchClient", "Authorization": f"Bearer {token}"}
+            {"User-Agent": "onoteClient", "Authorization": f"Bearer {token}"}
         )
 
     def request(self, *args, **kwargs):
