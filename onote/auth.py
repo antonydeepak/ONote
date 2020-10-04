@@ -34,7 +34,7 @@ class OneNoteAuthenticator():
         result = None
         if accounts:
             a = accounts[0]
-            logger.info(f"User must have logged-in before. Taking the first account {a['username']}")
+            logger.info(f"User must have logged-in before. Taking the first account \'{a['username']}\'")
             result = self.app.acquire_token_silent(self.scopes, account=a)
         if not result:
             logger.info("Could not use credentials from cache; using device flow to obtain credentials")

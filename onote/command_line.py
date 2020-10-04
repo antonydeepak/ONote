@@ -1,8 +1,9 @@
 """Usage: onote search [-i <index>] QUERY
-          onote index [-d <directory>] [-p]
+          onote index [-d <directory>] [-u <user>] [-p]
 
 -i <index>, --index <index>              Path to index directory
 -d <directory>, --directory <directory>  Path to index directory
+-u <user>, --user <user>                 User account to use for indexing
 -p, --purge                              Purge the index instead of creating it
 --version                                Show version
 --help
@@ -172,7 +173,7 @@ def main():
         # client_id = "543ead0b-cc06-487c-9b75-67213f2d5fff"
         client_id = "595d2745-c735-44f9-b568-c709fbefce81"
         scopes = ["user.read", "notes.read"]
-        user_name = "antonydeepak@gmail.com"
+        user_name = args["--user"]
         authenticator = OneNoteAuthenticator(user_name, client_id, scopes)
         downloader = OneNoteSession(authenticator).get
         try:
