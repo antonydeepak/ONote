@@ -170,7 +170,6 @@ def main():
         logger.debug(f"Looking for index at path {path}")
         create_index(path)
 
-        # client_id = "543ead0b-cc06-487c-9b75-67213f2d5fff"
         client_id = "595d2745-c735-44f9-b568-c709fbefce81"
         scopes = ["user.read", "notes.read"]
         user_name = args["--user"]
