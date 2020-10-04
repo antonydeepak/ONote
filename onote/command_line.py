@@ -1,8 +1,9 @@
 """Usage: onote search [-i <index>] QUERY
-          onote index [-d <directory>]
+          onote index [-d <directory>] [-p]
 
 -i <index>, --index <index>              Path to index directory
 -d <directory>, --directory <directory>  Path to index directory
+-p, --purge                              Purge the index instead of creating it
 --version                                Show version
 --help
 """
@@ -11,6 +12,7 @@ import concurrent.futures
 import json
 import logging
 import os
+import shutil
 import subprocess
 
 from collections import namedtuple
@@ -46,6 +48,12 @@ def create_index(path: Path):
         with open("index/meta.json", "r") as r:
             with open(index_meta, "w") as w:
                 w.write(r.read())
+
+
+def purge_index(path: Path):
+    if path.exists():
+        logger.info(f"Purging '{path}'")
+        shutil.rmtree(path)
 
 
 class HtmlOnenoteContentParser(HTMLParser):
@@ -147,17 +155,22 @@ def search(query, index_path) -> Generator[SearchResult, None, None]:
 
 
 def main():
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
 
     args = docopt(__doc__, version=VERSION)
 
     # index
     if args["index"]:
         path = Path(args["--directory"] if args["--directory"] else INDEX_DIR_PATH)
+        if args["--purge"]:
+            purge_index(path)
+            exit(0)
+
         logger.debug(f"Looking for index at path {path}")
         create_index(path)
 
-        client_id = "543ead0b-cc06-487c-9b75-67213f2d5fff"
+        # client_id = "543ead0b-cc06-487c-9b75-67213f2d5fff"
+        client_id = "595d2745-c735-44f9-b568-c709fbefce81"
         scopes = ["user.read", "notes.read"]
         user_name = "antonydeepak@gmail.com"
         authenticator = OneNoteAuthenticator(user_name, client_id, scopes)

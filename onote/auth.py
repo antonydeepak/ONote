@@ -1,8 +1,8 @@
 import atexit
+import logging
 import msal
 import os
 import requests
-import logging
 
 from pathlib import Path
 from typing import List
@@ -33,12 +33,13 @@ class OneNoteAuthenticator():
         accounts = self.app.get_accounts(self.user_name)
         result = None
         if accounts:
-            logger.info("account exists. User must have logged-in before. Taking the first account")
-            result = self.app.acquire_token_silent(self.scopes, account=accounts[0])
+            a = accounts[0]
+            logger.info(f"User must have logged-in before. Taking the first account {a['username']}")
+            result = self.app.acquire_token_silent(self.scopes, account=a)
         if not result:
-            logger.info("Could not get the credentials. Using device flow")
-
+            logger.info("Could not use credentials from cache; using device flow to obtain credentials")
             flow = self.app.initiate_device_flow(scopes=self.scopes)
+            logger.info(flow["message"])
             result = self.app.acquire_token_by_device_flow(flow)
 
         if "error" in result:
