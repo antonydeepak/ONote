@@ -1,4 +1,4 @@
-"""Usage: onote search [-i <index>] QUERY
+"""Usage: onote search [-i <index>] QUERY...
           onote index [-d <directory>] [-u <user>] [-p]
 
 -i <index>, --index <index>              Path to index directory
@@ -150,9 +150,11 @@ def search(query, index_path) -> Generator[SearchResult, None, None]:
                        encoding="utf8", capture_output=True)
     if p.returncode != 0:
         raise SearchError(p.stderr)
-    for r in p.stdout.strip().split('\n'):
-        c = json.loads(r)
-        yield SearchResult(title=c["title"][0], url=c["url"][0])
+    out = p.stdout.strip()
+    if out:
+        for r in out.split('\n'):
+            c = json.loads(r)
+            yield SearchResult(title=c["title"][0], url=c["url"][0])
 
 
 def main():
@@ -187,7 +189,7 @@ def main():
 
     # search
     if args["search"]:
-        q = args["QUERY"].strip()
+        q = ' '.join(args["QUERY"]).strip()
         path = args["--index"] if args["--index"] else INDEX_DIR_PATH
         try:
             for r in search(q, path):
