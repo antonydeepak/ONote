@@ -168,6 +168,9 @@ def main():
             exit(0)
 
         logger.debug(f"Looking for index at path {path}")
+        # TODO: have to look into deleting an existing document in Tantivy. Until then
+        # we have to purge existing index and re-index it again.
+        purge_index(path)
         create_index(path)
 
         client_id = "595d2745-c735-44f9-b568-c709fbefce81"
